@@ -9,7 +9,11 @@ class ProductSeeder extends Seeder
 {
   public function run(): void
   {
-    Product::truncate();             // reset for demo/dev
-    Product::factory()->count(12)->create();
+    \App\Models\Product::truncate();
+    $products = \App\Models\Product::factory()->count(12)->create();
+
+    foreach ($products as $p) {
+      dispatch(new \App\Jobs\GenerateProductImage($p->id));
+    }
   }
 }
