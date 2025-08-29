@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 const props = defineProps({ title: { type: String, default: 'ShoppingCart' } })
 const isActive = (href) => window.location.pathname === href
 </script>

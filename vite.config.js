@@ -1,19 +1,25 @@
 import { defineConfig } from "vite";
 import laravel from "laravel-vite-plugin";
 import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
     server: {
         host: "0.0.0.0",
         port: 5173,
-        strictPort: true, // don't hop to 5174/5178 etc.
+        strictPort: true, 
         hmr: { host: "localhost", port: 5173 },
     },
     plugins: [
         laravel({
-            input: ["resources/js/cart.js", "resources/js/shop.js"],
+            input: [
+                "resources/css/app.css",
+                "resources/js/shop.ts",
+                'resources/js/cart.ts' 
+            ],
             refresh: true,
         }),
         vue(),
+        tailwindcss(),
     ],
 });
