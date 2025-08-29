@@ -191,7 +191,7 @@ curl -s -X DELETE -c cookies.txt -b cookies.txt \
       <li><code>tax_rate</code> ≥ 0, <code>discount</code> ≥ 0</li>
     </ul>
 
-    <p>Discount is a flat amount applied before tax. All math lives in <code>App\Domain\Cart\Cart::totalsBreakdown()</code>.</p>
+    <p>Discount is a flat amount applied before tax. All math lives in <code>App\Domain\Cart\Cart (see total() and toArrayForApi())</code>.</p>
   </main>
 </body>
 
