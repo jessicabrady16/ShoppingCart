@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Product extends Model
 {
-  protected $fillable = ['name', 'price'];
-  protected $casts = ['price' => 'decimal:2']; // stored as DECIMAL(…,2)
+  use HasFactory;
+
+  protected $fillable = ['name', 'price', 'image_url'];
+  protected $casts = ['price' => 'decimal:2'];
 }
