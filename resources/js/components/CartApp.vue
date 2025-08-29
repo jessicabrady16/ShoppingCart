@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import AppHeader from './AppHeader.vue'
 
 const taxRate = ref(0.0725)
 const discount = ref(0.00)
@@ -65,10 +66,9 @@ const hasItems = computed(() => (cart.value.items ?? []).length > 0)
 </script>
 
 <template>
+
   <main style="max-width: 900px; margin: 2rem auto; font-family: ui-sans-serif, system-ui;">
-    <h1 style="display:flex; gap:.5rem; align-items:center">
-      Shopping Cart <small style="font-weight:400;color:#666">(Vue + API)</small>
-    </h1>
+    <AppHeader title="Shopping Cart" />
 
     <section style="display:grid; gap:.5rem; grid-template-columns: repeat(5, 1fr); align-items:end; margin:.75rem 0;">
       <label>Product ID <input type="number" min="1" v-model.number="form.product_id" /></label>
@@ -105,7 +105,7 @@ const hasItems = computed(() => (cart.value.items ?? []).length > 0)
             <td style="text-align:right;">{{ fmt(row.product.price) }}</td>
             <td style="text-align:center;">
               <input type="number" min="0" :value="row.quantity"
-                     @change="e => updateQty(row.product.id, e.target.value)" />
+                @change="e => updateQty(row.product.id, e.target.value)" />
             </td>
             <td style="text-align:right;">{{ fmt(row.lineTotal) }}</td>
             <td><button :disabled="busy" @click="removeItem(row.product.id)">Remove</button></td>
@@ -125,8 +125,24 @@ const hasItems = computed(() => (cart.value.items ?? []).length > 0)
 </template>
 
 <style scoped>
-label { display:flex; flex-direction:column; gap:.25rem; font-size:.95rem; }
-input { padding:.4rem; }
-button { padding:.5rem .8rem; cursor:pointer; }
-button[disabled]{ opacity:.6; cursor:not-allowed; }
+label {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  font-size: .95rem;
+}
+
+input {
+  padding: .4rem;
+}
+
+button {
+  padding: .5rem .8rem;
+  cursor: pointer;
+}
+
+button[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
+}
 </style>
