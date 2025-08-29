@@ -1,69 +1,110 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue'
 
-const taxRate = ref(0.0725);
-const discount = ref(0.00);
-const cart = ref({ items: [], subtotal: 0, tax: 0, total: 0 });
+const taxRate = ref(0.0725)
+const discount = ref(0.00)
+const cart = ref({ items: [], subtotal: 0, tax: 0, total: 0, discount: 0, tax_rate: 0 })
 
-const form = ref({ product_id: 1, name: 'Notebook', price: 3.5, quantity: 1 });
+const form = ref({ product_id: 1, name: 'Notebook', price: 3.50, quantity: 1 })
+const busy = ref(false)
+const err = ref('')
+
+const fmt = (n) => Number(n ?? 0).toFixed(2)
 
 async function fetchCart() {
-  const q = new URLSearchParams({ tax_rate: String(taxRate.value), discount: String(discount.value) });
-  const res = await fetch(`/api/cart?${q.toString()}`);
-  cart.value = await res.json();
+  err.value = ''
+  try {
+    const q = new URLSearchParams({ tax_rate: String(taxRate.value), discount: String(discount.value) })
+    const res = await fetch(`/api/cart?${q}`)
+    cart.value = await res.json()
+  } catch (e) {
+    err.value = String(e)
+  }
 }
 
 async function addItem() {
-  await fetch('/api/cart/items', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(form.value),
-  });
-  await fetchCart();
+  err.value = ''; busy.value = true
+  try {
+    await fetch('/api/cart/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form.value),
+    })
+    await fetchCart()
+  } catch (e) {
+    err.value = String(e)
+  } finally {
+    busy.value = false
+  }
 }
 
 async function updateQty(productId, qty) {
-  await fetch(`/api/cart/items/${productId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quantity: qty }),
-  });
-  await fetchCart();
+  err.value = ''; busy.value = true
+  try {
+    await fetch(`/api/cart/items/${productId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity: Number(qty) }),
+    })
+    await fetchCart()
+  } catch (e) {
+    err.value = String(e)
+  } finally {
+    busy.value = false
+  }
 }
 
 async function removeItem(productId) {
-  await fetch(`/api/cart/items/${productId}`, { method: 'DELETE' });
-  await fetchCart();
+  err.value = ''; busy.value = true
+  try {
+    await fetch(`/api/cart/items/${productId}`, { method: 'DELETE' })
+    await fetchCart()
+  } catch (e) {
+    err.value = String(e)
+  } finally {
+    busy.value = false
+  }
 }
 
 async function clearCart() {
-  await fetch('/api/cart', { method: 'DELETE' });
-  await fetchCart();
+  err.value = ''; busy.value = true
+  try {
+    await fetch('/api/cart', { method: 'DELETE' })
+    await fetchCart()
+  } catch (e) { err.value = String(e) } finally { busy.value = false }
 }
 
-onMounted(fetchCart);
-
-const hasItems = computed(() => (cart.value.items ?? []).length > 0);
+onMounted(fetchCart)
+const hasItems = computed(() => (cart.value.items ?? []).length > 0)
 </script>
 
 <template>
-  <main style="max-width: 800px; margin: 2rem auto; font-family: ui-sans-serif, system-ui;">
-    <h1>Shopping Cart</h1>
+  <main style="max-width: 900px; margin: 2rem auto; font-family: ui-sans-serif, system-ui;">
+    <h1 style="display:flex; gap:.5rem; align-items:center">
+      Shopping Cart <small style="font-weight:400;color:#666">(Vue + API)</small>
+    </h1>
 
-    <section style="display: grid; gap: .5rem; grid-template-columns: repeat(4, 1fr); align-items: end;">
-      <label>Product ID <input type="number" v-model.number="form.product_id" min="1" /></label>
+    <section style="display:grid; gap:.5rem; grid-template-columns: repeat(5, 1fr); align-items:end; margin:.75rem 0;">
+      <label>Product ID <input type="number" min="1" v-model.number="form.product_id" /></label>
       <label>Name <input type="text" v-model="form.name" /></label>
-      <label>Price <input type="number" step="0.01" min="0.01" v-model.number="form.price" /></label>
+      <label>Price <input type="number" min="0.01" step="0.01" v-model.number="form.price" /></label>
       <label>Qty <input type="number" min="1" v-model.number="form.quantity" /></label>
-      <button @click="addItem">Add to cart</button>
+      <button :disabled="busy" @click="addItem">Add</button>
     </section>
 
-    <section style="margin-top:1rem; display:flex; gap:1rem; align-items:center;">
-      <label>Tax Rate <input type="number" step="0.0001" v-model.number="taxRate" @change="fetchCart" /></label>
-      <label>Discount <input type="number" step="0.01" min="0" v-model.number="discount" @change="fetchCart" /></label>
-      <button @click="clearCart">Clear</button>
-      <button @click="fetchCart">Refresh</button>
+    <section style="display:flex; gap:1rem; align-items:center; margin:.5rem 0;">
+      <label>Tax Rate
+        <input type="number" step="0.0001" v-model.number="taxRate" @change="fetchCart" />
+      </label>
+      <label>Discount
+        <input type="number" step="0.01" min="0" v-model.number="discount" @change="fetchCart" />
+      </label>
+      <button :disabled="busy" @click="clearCart">Clear</button>
+      <button :disabled="busy" @click="fetchCart">Refresh</button>
+      <span v-if="busy">Working…</span>
     </section>
+
+    <p v-if="err" style="color:#b00;">{{ err }}</p>
 
     <section v-if="hasItems" style="margin-top:1rem;">
       <table border="1" cellpadding="6" cellspacing="0" width="100%">
@@ -79,21 +120,21 @@ const hasItems = computed(() => (cart.value.items ?? []).length > 0);
         <tbody>
           <tr v-for="row in cart.items" :key="row.product.id">
             <td>{{ row.product.name }} (#{{ row.product.id }})</td>
-            <td style="text-align:right;">{{ row.product.price.toFixed(2) }}</td>
+            <td style="text-align:right;">{{ fmt(row.product.price) }}</td>
             <td style="text-align:center;">
               <input type="number" min="0" :value="row.quantity"
-                @change="e => updateQty(row.product.id, Number(e.target.value))" />
+                @change="e => updateQty(row.product.id, e.target.value)" />
             </td>
-            <td style="text-align:right;">{{ row.lineTotal.toFixed(2) }}</td>
-            <td><button @click="removeItem(row.product.id)">Remove</button></td>
+            <td style="text-align:right;">{{ fmt(row.lineTotal) }}</td>
+            <td><button :disabled="busy" @click="removeItem(row.product.id)">Remove</button></td>
           </tr>
         </tbody>
       </table>
 
       <div style="margin-top:1rem; text-align:right;">
-        <div>Subtotal: <strong>{{ cart.subtotal.toFixed(2) }}</strong></div>
-        <div>Tax: <strong>{{ cart.tax.toFixed(2) }}</strong></div>
-        <div>Total: <strong>{{ cart.total.toFixed(2) }}</strong></div>
+        <div>Subtotal: <strong>{{ fmt(cart.subtotal) }}</strong></div>
+        <div>Tax: <strong>{{ fmt(cart.tax) }}</strong></div>
+        <div>Total: <strong>{{ fmt(cart.total) }}</strong></div>
       </div>
     </section>
 
@@ -105,7 +146,8 @@ const hasItems = computed(() => (cart.value.items ?? []).length > 0);
 label {
   display: flex;
   flex-direction: column;
-  font-size: .9rem;
+  gap: .25rem;
+  font-size: .95rem;
 }
 
 input {
@@ -114,5 +156,11 @@ input {
 
 button {
   padding: .5rem .8rem;
+  cursor: pointer;
+}
+
+button[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
 }
 </style>
