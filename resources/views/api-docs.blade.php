@@ -1,17 +1,39 @@
-<!-- resources/views/api-docs.blade.php -->
 <!doctype html>
 <html lang="en">
 
 <head>
   <meta charset="utf-8" />
-  <title>ShoppingCart API Docs</title>
+  <title>ShoppingCart — API Docs</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
+    :root {
+      --maxw: 960px;
+    }
+
     body {
       font-family: ui-sans-serif, system-ui;
       line-height: 1.5;
-      margin: 2rem;
-      max-width: 900px
+      margin: 0
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 2rem auto 1rem;
+      max-width: var(--maxw);
+      padding: 0 1rem
+    }
+
+    nav {
+      display: flex;
+      gap: .75rem
+    }
+
+    main {
+      max-width: var(--maxw);
+      margin: 0 auto 2rem;
+      padding: 0 1rem
     }
 
     code,
@@ -60,52 +82,62 @@
 </head>
 
 <body>
-  <h1>ShoppingCart API</h1>
-  <p><span class="pill">base URL</span> <code>http://localhost:8080</code></p>
+  <header>
+    <h1 style="margin:0">API Docs</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/shop">Shop</a>
+      <a href="/cart">Cart</a>
+      <a href="/api-docs" style="font-weight:700;text-decoration:underline">API Docs</a>
+    </nav>
+  </header>
 
-  <h2>Auth & Session</h2>
-  <p>This API uses a <strong>session cookie</strong>. Keep cookies between requests (see curl’s <code>-c</code>/<code>-b</code> below).</p>
+  <main>
+    <p><span class="pill">base URL</span> <code>http://localhost:8080</code></p>
 
-  <h2>Endpoints</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Method</th>
-        <th>Path</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>GET</td>
-        <td><code>/api/cart?tax_rate=&lt;float&gt;&amp;discount=&lt;float&gt;</code></td>
-        <td>Get cart. Discount applied <em>before</em> tax.</td>
-      </tr>
-      <tr>
-        <td>POST</td>
-        <td><code>/api/cart/items</code></td>
-        <td>Add item: <code>{ product_id, name, price, quantity }</code></td>
-      </tr>
-      <tr>
-        <td>PATCH</td>
-        <td><code>/api/cart/items/{productId}</code></td>
-        <td>Update quantity: <code>{ quantity }</code> (0 removes)</td>
-      </tr>
-      <tr>
-        <td>DELETE</td>
-        <td><code>/api/cart/items/{productId}</code></td>
-        <td>Remove an item</td>
-      </tr>
-      <tr>
-        <td>DELETE</td>
-        <td><code>/api/cart</code></td>
-        <td>Clear cart</td>
-      </tr>
-    </tbody>
-  </table>
+    <h2>Auth & Session</h2>
+    <p>This API uses a <strong>session cookie</strong>. Keep cookies between requests (see curl’s <code>-c</code>/<code>-b</code> below).</p>
 
-  <h2>Response shape</h2>
-  <pre>{
+    <h2>Endpoints</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Path</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>GET</td>
+          <td><code>/api/cart?tax_rate=&lt;float&gt;&amp;discount=&lt;float&gt;</code></td>
+          <td>Get cart. Discount applied <em>before</em> tax.</td>
+        </tr>
+        <tr>
+          <td>POST</td>
+          <td><code>/api/cart/items</code></td>
+          <td>Add item: <code>{ product_id, name, price, quantity }</code></td>
+        </tr>
+        <tr>
+          <td>PATCH</td>
+          <td><code>/api/cart/items/{productId}</code></td>
+          <td>Update quantity: <code>{ quantity }</code> (0 removes)</td>
+        </tr>
+        <tr>
+          <td>DELETE</td>
+          <td><code>/api/cart/items/{productId}</code></td>
+          <td>Remove an item</td>
+        </tr>
+        <tr>
+          <td>DELETE</td>
+          <td><code>/api/cart</code></td>
+          <td>Clear cart</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Response shape</h2>
+    <pre>{
   "items": [
     {
       "product": { "id": 42, "name": "Notebook", "price": 3.5 },
@@ -121,8 +153,8 @@
   "checkout": "https://example.com/checkout"
 }</pre>
 
-  <h2>Quick start with curl (cookie jar)</h2>
-  <pre># create a cookie jar file for the session
+    <h2>Quick start with curl (cookie jar)</h2>
+    <pre># create a cookie jar file for the session
 touch cookies.txt
 
 # 1) read empty cart
@@ -153,17 +185,14 @@ curl -s -X DELETE -c cookies.txt -b cookies.txt \
 curl -s -X DELETE -c cookies.txt -b cookies.txt \
   "http://localhost:8080/api/cart"</pre>
 
-  <h2>Validation</h2>
-  <ul>
-    <li><code>price</code> ≥ 0.01, <code>quantity</code> ≥ 1 (POST) / ≥ 0 (PATCH)</li>
-    <li><code>tax_rate</code> ≥ 0, <code>discount</code> ≥ 0</li>
-  </ul>
+    <h2>Validation</h2>
+    <ul>
+      <li><code>price</code> ≥ 0.01, <code>quantity</code> ≥ 1 (POST) / ≥ 0 (PATCH)</li>
+      <li><code>tax_rate</code> ≥ 0, <code>discount</code> ≥ 0</li>
+    </ul>
 
-  <p>Discount is a flat amount applied before tax. All math lives in <code>App\Domain\Cart\Cart::totalsBreakdown()</code>.</p>
-
-  <p style="margin-top:2rem">
-    <a href="/">↩ Back to UI</a>
-  </p>
+    <p>Discount is a flat amount applied before tax. All math lives in <code>App\Domain\Cart\Cart::totalsBreakdown()</code>.</p>
+  </main>
 </body>
 
 </html>

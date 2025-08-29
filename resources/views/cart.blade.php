@@ -5,8 +5,7 @@
   <meta charset="utf-8" />
   <title>ShoppingCart — Cart</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  @vite('resources/js/cart.js') <!-- update if you were still pointing at app.js -->
-</head>
+  @vite('resources/js/cart.js') 
 
 <body>
   <div id="cart">Loading…</div>
