@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import AppHeader from './AppHeader.vue'
 
 const products = ref([])
 const qty = ref({})
@@ -37,15 +38,7 @@ onMounted(load)
 
 <template>
   <main style="max-width: 960px; margin: 2rem auto; font-family: ui-sans-serif, system-ui;">
-    <header style="display:flex; justify-content:space-between; align-items:center;">
-      <h1>Shop</h1>
-      <nav style="display:flex; gap:.75rem;">
-        <a href="/">Home</a>
-        <a href="/cart">Cart</a>
-        <a href="/api-docs">API Docs</a>
-      </nav>
-    </header>
-
+    <AppHeader title="Shop" />
     <p v-if="err" style="color:#b00">{{ err }}</p>
 
     <section
