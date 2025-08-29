@@ -43,12 +43,14 @@ onMounted(load)
 
     <section
       style="display:grid; gap:1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-top:1rem;">
-      <article v-for="p in products" :key="p.id" style="border:1px solid #ddd; border-radius:12px; padding:1rem;">
+      <article v-for="p in products" :key="p.id" style="border:1px solid #ddd;border-radius:12px;padding:1rem;">
+        <img :src="p.image_url" :alt="p.name"
+          style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:.5rem;" loading="lazy" />
         <h3 style="margin:.2rem 0">{{ p.name }}</h3>
-        <p style="color:#555; margin:.2rem 0">$ {{ Number(p.price).toFixed(2) }}</p>
-        <div style="display:flex; gap:.5rem; align-items:center;">
-          <input type="number" min="1" v-model.number="qty[p.id]" style="width:80px; padding:.4rem;" />
-          <button :disabled="busy" @click="addToCart(p)" style="padding:.5rem .8rem; cursor:pointer;">Add to
+        <p style="color:#555;margin:.2rem 0">$ {{ Number(p.price).toFixed(2) }}</p>
+        <div style="display:flex;gap:.5rem;align-items:center;">
+          <input type="number" min="1" v-model.number="qty[p.id]" style="width:80px;padding:.4rem;" />
+          <button :disabled="busy" @click="addToCart(p)" style="padding:.5rem .8rem;cursor:pointer;">Add to
             Cart</button>
         </div>
       </article>
