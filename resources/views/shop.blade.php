@@ -3,13 +3,13 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>ShoppingCart — Cart</title>
+  <title>ShoppingCart — Shop</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  @vite('resources/js/cart.js') <!-- update if you were still pointing at app.js -->
+  @vite('resources/js/shop.js')
 </head>
 
 <body>
-  <div id="cart">Loading…</div>
+  <div id="shop">Loading…</div>
 </body>
 
 </html>
