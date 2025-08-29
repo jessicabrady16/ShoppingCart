@@ -1,61 +1,142 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# ShoppingCart — Laravel + Vue (Interview Prep)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Session-backed shopping cart with a clean OO domain, JSON API, and a Vue 3 UI.  
+Built to practice senior-level full‑stack patterns (Laravel 12, PHP 8.3, Vite, Vue 3) and to discuss design/trade‑offs in interviews.
 
-## About Laravel
+## Highlights
+- **Domain**: `App/Domain/Cart/{Cart, CartItem, Product, CartInterface}` (clear interfaces, single source of truth for money math).
+- **API**: JSON endpoints with **session persistence** (`/api/cart`, `/api/cart/items`).
+- **Frontend**: Minimal Vue 3 app (SFC) compiled by Vite.
+- **Dockerized**: Nginx, PHP‑FPM, MySQL 8, Node (Vite). One‑command up.
+- **Tests (Pest)**: Unit tests for the domain, feature tests for API.
+- **Interview‑friendly**: Simple surface area, strong separation of concerns.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Stack
+Laravel 12 • PHP 8.3 • MySQL 8 • Vue 3 • Vite • Pest • Docker (nginx + php‑fpm + node)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Quick Start (Docker)
+```bash
+# 1) Build & start services
+docker compose up -d --build
 
-## Learning Laravel
+# 2) App bootstrap (inside containers)
+docker compose exec app composer install
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --force   # db not required for cart, but app boots cleanly
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+# 3) Frontend
+# Dev (HMR):
+docker compose exec node bash -lc 'npm i && npm run dev -- --host 0.0.0.0 --port 5173'
+# OR Production build:
+docker compose exec node bash -lc 'npm i && npm run build'
+docker compose exec app bash -lc 'rm -f public/hot && php artisan optimize:clear'
+```
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+Open the app: **http://localhost:8080**  
+API example: **GET http://localhost:8080/api/cart**
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## API (Session‑backed)
+```
+GET     /api/cart                          -> show (query: tax_rate?, discount?)
+POST    /api/cart/items                    -> {product_id, name, price, quantity}
+PATCH   /api/cart/items/{productId}        -> {quantity}  # 0 removes
+DELETE  /api/cart/items/{productId}        -> remove item
+DELETE  /api/cart                          -> clear cart
+```
+Notes:
+- Discount is a **flat** amount applied **before** tax.
+- All money arithmetic is centralized in `Cart::totalsBreakdown()`.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Sample
+```bash
+curl -s http://localhost:8080/api/cart
+curl -s -X POST http://localhost:8080/api/cart/items \
+  -H 'Content-Type: application/json' \
+  -d '{"product_id":42,"name":"Notebook","price":3.5,"quantity":2}'
+```
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Project Layout
+```
+app/Domain/Cart/
+  Cart.php  CartItem.php  Product.php  CartInterface.php
+app/Services/CartService.php            # session load/save + façade for controller
+app/Http/Controllers/CartController.php
+app/Http/Requests/{Store,Update}CartItemRequest.php
+routes/{api.php, web.php}
+bootstrap/app.php                       # enables API routing (api + apiPrefix)
+resources/js/app.js                     # mounts Vue
+resources/js/components/CartApp.vue     # UI
+resources/views/cart.blade.php
+docker-compose.yml, .docker/
+```
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Dev Notes
+- **API routing** enabled in `bootstrap/app.php` with:
+  ```php
+  ->withRouting(
+      web: __DIR__.'/../routes/web.php',
+      api: __DIR__.'/../routes/api.php',
+      apiPrefix: 'api',
+      commands: __DIR__.'/../routes/console.php',
+      health: '/up',
+  )
+  ```
+- **Sessions for API** via middleware: `EncryptCookies`, `AddQueuedCookiesToResponse`, `StartSession` (see `routes/api.php`).
+- **Vite** uses `@vitejs/plugin-vue`. For production: `npm run build` and ensure `public/hot` is absent.
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Tests (Pest)
+Run all tests:
+```bash
+docker compose exec app php artisan test
+# or with more detail:
+docker compose exec app ./vendor/bin/pest -vv
+```
 
-## Security Vulnerabilities
+### Coverage
+- **Unit**: domain math, validation guards, snapshot/restore (`toStorageArray()`).
+- **Feature**: add/update/remove flows, discount‑before‑tax behavior, request validation.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
+
+## Discussion Topics (for interview)
+- Why session‑backed cart vs DB/Redis; how to switch to persistent carts.
+- Object design trade‑offs (value objects for money; product immutability; CartItem as aggregate part).
+- Rounding strategy & currency (integers for cents vs floats; current demo uses floats for brevity).
+- API shape & idempotency; optimistic updates on UI.
+- Test strategy (unit vs feature vs e2e), and CI (GitHub Actions) ideas.
+
+## Future Extensions
+- Percentage discounts & coupon codes.
+- Persist carts for authenticated users (DB/Redis), merge guest → user.
+- Product catalog in DB with Eloquent resources.
+- Rate limiting, observability (request/SQL timings), and SLOs.
+- Cypress E2E and GitHub Actions CI pipeline.
+
+---
 
 ## License
+Proprietary License — Evaluation Only
+Copyright (c) 2025 Jessica Brady. All rights reserved.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Permission is granted to recruiters, hiring managers, and interviewers to:
+  • View this repository and its contents.
+  • Clone the repository and run the software locally for the sole purpose of evaluating the author’s skills.
+
+All other rights are reserved. Without prior written permission from the copyright holder, you may NOT:
+  • Copy, reproduce, or redistribute this software or any portion of it.
+  • Modify, adapt, translate, or create derivative works.
+  • Use any part of this software in commercial or non-commercial products or services.
+  • Re-license, sub-license, or incorporate this software into other projects.
+  • Publicly host or provide access to compiled or uncompiled versions of this software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
