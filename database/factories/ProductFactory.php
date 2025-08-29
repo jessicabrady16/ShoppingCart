@@ -24,7 +24,7 @@ class ProductFactory extends Factory
     return [
       'name'      => $name,
       'price'     => $price,
-      'image_url' => "https://picsum.photos/seed/{$seed}/600/400",
+      'image_url' => null,   // let the job populate this; API will still fallback
     ];
   }
 }
