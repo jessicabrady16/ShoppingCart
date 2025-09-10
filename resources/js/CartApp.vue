@@ -1,166 +1,113 @@
-<script setup>
-import { ref, computed, onMounted } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, computed, watch } from 'vue'
+import AppHeader from './AppHeader.vue'
 
-const taxRate = ref(0.0725)
-const discount = ref(0.00)
-const cart = ref({ items: [], subtotal: 0, tax: 0, total: 0, discount: 0, tax_rate: 0 })
+type Role = 'admin' | 'shopper' | null
+type Product = { id: number; name: string; price: number; image_url?: string }
+type CartItem = { product: Product; quantity: number; lineTotal: number }
+type CartRes = {
+  items: CartItem[]
+  subtotal: number
+  discount: number
+  tax_rate: number
+  tax: number
+  total: number
+  checkout: string
+}
 
-const form = ref({ product_id: 1, name: 'Notebook', price: 3.50, quantity: 1 })
+const meRole = ref < Role > (null)
+const isAdmin = computed(() => meRole.value === 'admin')
+
+// admin-only inputs
+const discount = ref < number > (0)
+const taxRate = ref < number > (0)
+
+// cart state
+const cart = ref < CartRes | null > (null)
 const busy = ref(false)
 const err = ref('')
 
-const fmt = (n) => Number(n ?? 0).toFixed(2)
+async function fetchMe() {
+  const res = await fetch('/api/auth/me', { credentials: 'same-origin' })
+  meRole.value = res.ok ? (await res.json()).role as Role : null
+}
 
-async function fetchCart() {
-  err.value = ''
+const effectiveDiscount = computed(() => (isAdmin.value ? discount.value : 0))
+const effectiveTaxRate = computed(() => (isAdmin.value ? taxRate.value : 0))
+
+async function loadCart() {
   try {
-    const q = new URLSearchParams({ tax_rate: String(taxRate.value), discount: String(discount.value) })
-    const res = await fetch(`/api/cart?${q}`)
+    busy.value = true
+    err.value = ''
+    const qs = new URLSearchParams({
+      discount: String(effectiveDiscount.value || 0),
+      tax_rate: String(effectiveTaxRate.value || 0),
+    })
+    const res = await fetch('/api/cart?' + qs.toString(), { credentials: 'same-origin' })
     cart.value = await res.json()
   } catch (e) {
     err.value = String(e)
-  }
-}
-
-async function addItem() {
-  err.value = ''; busy.value = true
-  try {
-    await fetch('/api/cart/items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form.value),
-    })
-    await fetchCart()
-  } catch (e) {
-    err.value = String(e)
   } finally {
     busy.value = false
   }
 }
 
-async function updateQty(productId, qty) {
-  err.value = ''; busy.value = true
-  try {
-    await fetch(`/api/cart/items/${productId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quantity: Number(qty) }),
-    })
-    await fetchCart()
-  } catch (e) {
-    err.value = String(e)
-  } finally {
-    busy.value = false
-  }
-}
+watch([effectiveDiscount, effectiveTaxRate], () => {
+  // Only refetch automatically when admin changes pricing inputs
+  if (isAdmin.value) loadCart()
+})
 
-async function removeItem(productId) {
-  err.value = ''; busy.value = true
-  try {
-    await fetch(`/api/cart/items/${productId}`, { method: 'DELETE' })
-    await fetchCart()
-  } catch (e) {
-    err.value = String(e)
-  } finally {
-    busy.value = false
-  }
-}
-
-async function clearCart() {
-  err.value = ''; busy.value = true
-  try {
-    await fetch('/api/cart', { method: 'DELETE' })
-    await fetchCart()
-  } catch (e) { err.value = String(e) } finally { busy.value = false }
-}
-
-onMounted(fetchCart)
-const hasItems = computed(() => (cart.value.items ?? []).length > 0)
+onMounted(async () => {
+  await fetchMe()
+  await loadCart()
+})
 </script>
 
 <template>
-  <main style="max-width: 900px; margin: 2rem auto; font-family: ui-sans-serif, system-ui;">
-    <h1 style="display:flex; gap:.5rem; align-items:center">
-      Shopping Cart <small style="font-weight:400;color:#666">(Vue + API)</small>
-    </h1>
+  <main style="max-width: 960px; margin: 2rem auto; font-family: ui-sans-serif, system-ui;">
+    <AppHeader title="Cart" />
 
-    <section style="display:grid; gap:.5rem; grid-template-columns: repeat(5, 1fr); align-items:end; margin:.75rem 0;">
-      <label>Product ID <input type="number" min="1" v-model.number="form.product_id" /></label>
-      <label>Name <input type="text" v-model="form.name" /></label>
-      <label>Price <input type="number" min="0.01" step="0.01" v-model.number="form.price" /></label>
-      <label>Qty <input type="number" min="1" v-model.number="form.quantity" /></label>
-      <button :disabled="busy" @click="addItem">Add</button>
+    <p v-if="err" style="color:#b00">{{ err }}</p>
+
+    <!-- Admin-only pricing controls -->
+    <section v-if="isAdmin" style="display:flex; gap:1rem; align-items:flex-end; margin:.5rem 0 1rem;">
+      <label>
+        <div>Flat discount ($)</div>
+        <input type="number" min="0" step="0.01" v-model.number="discount" style="padding:.4rem; width: 10rem;" />
+      </label>
+
+      <label>
+        <div>Tax rate</div>
+        <input type="number" min="0" step="0.0001" v-model.number="taxRate" style="padding:.4rem; width: 8rem;" />
+      </label>
+
+      <button :disabled="busy" @click="loadCart">Apply</button>
     </section>
 
-    <section style="display:flex; gap:1rem; align-items:center; margin:.5rem 0;">
-      <label>Tax Rate
-        <input type="number" step="0.0001" v-model.number="taxRate" @change="fetchCart" />
-      </label>
-      <label>Discount
-        <input type="number" step="0.01" min="0" v-model.number="discount" @change="fetchCart" />
-      </label>
-      <button :disabled="busy" @click="clearCart">Clear</button>
-      <button :disabled="busy" @click="fetchCart">Refresh</button>
-      <span v-if="busy">Working…</span>
+    <section v-else style="margin:.5rem 0 1rem; color:#555;">
+      Prices shown are without admin discounts/tax overrides.
     </section>
 
-    <p v-if="err" style="color:#b00;">{{ err }}</p>
+    <div v-if="cart">
+      <ul style="list-style:none; padding:0; margin:0 0 1rem 0;">
+        <li v-for="i in cart.items" :key="i.product.id"
+          style="display:flex;gap:1rem;align-items:center;border-bottom:1px solid #eee;padding:.5rem 0;">
+          <img :src="i.product.image_url" :alt="i.product.name"
+            style="width:64px;height:64px;object-fit:cover;border-radius:8px;">
+          <div style="flex:1">
+            <div style="font-weight:600">{{ i.product.name }}</div>
+            <div style="color:#666">${{ i.product.price.toFixed(2) }} × {{ i.quantity }}</div>
+          </div>
+          <div style="width:100px;text-align:right">${{ i.lineTotal.toFixed(2) }}</div>
+        </li>
+      </ul>
 
-    <section v-if="hasItems" style="margin-top:1rem;">
-      <table border="1" cellpadding="6" cellspacing="0" width="100%">
-        <thead>
-          <tr>
-            <th style="text-align:left;">Product</th>
-            <th>Price</th>
-            <th>Qty</th>
-            <th>Line Total</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in cart.items" :key="row.product.id">
-            <td>{{ row.product.name }} (#{{ row.product.id }})</td>
-            <td style="text-align:right;">{{ fmt(row.product.price) }}</td>
-            <td style="text-align:center;">
-              <input type="number" min="0" :value="row.quantity"
-                @change="e => updateQty(row.product.id, e.target.value)" />
-            </td>
-            <td style="text-align:right;">{{ fmt(row.lineTotal) }}</td>
-            <td><button :disabled="busy" @click="removeItem(row.product.id)">Remove</button></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style="margin-top:1rem; text-align:right;">
-        <div>Subtotal: <strong>{{ fmt(cart.subtotal) }}</strong></div>
-        <div>Tax: <strong>{{ fmt(cart.tax) }}</strong></div>
-        <div>Total: <strong>{{ fmt(cart.total) }}</strong></div>
+      <div style="text-align:right">
+        <div>Subtotal: ${{ cart.subtotal.toFixed(2) }}</div>
+        <div v-if="cart.discount">Discount: -${{ cart.discount.toFixed(2) }}</div>
+        <div v-if="cart.tax">Tax ({{ cart.tax_rate }}): ${{ cart.tax.toFixed(2) }}</div>
+        <div style="font-weight:700; font-size:1.2rem;">Total: ${{ cart.total.toFixed(2) }}</div>
       </div>
-    </section>
-
-    <p v-else style="margin-top:1rem;">Cart is empty.</p>
+    </div>
   </main>
 </template>
-
-<style scoped>
-label {
-  display: flex;
-  flex-direction: column;
-  gap: .25rem;
-  font-size: .95rem;
-}
-
-input {
-  padding: .4rem;
-}
-
-button {
-  padding: .5rem .8rem;
-  cursor: pointer;
-}
-
-button[disabled] {
-  opacity: .6;
-  cursor: not-allowed;
-}
-</style>

@@ -4,44 +4,103 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Services\CartService;
 use App\Http\Requests\StoreCartItemRequest;
 use App\Http\Requests\UpdateCartItemRequest;
-use App\Services\CartService;
-use Illuminate\Http\Request;
 
 final class CartController extends Controller
 {
   public function __construct(private CartService $cart) {}
 
-  public function show(Request $request)
+  /**
+   * GET /api/cart?tax_rate=&discount=&discount_type=flat|percent
+   */
+  public function show(Request $request): JsonResponse
   {
-    $taxRate  = (float) $request->query('tax_rate', 0.0);
-    $discount = (float) $request->query('discount', 0.0);
-    return response()->json($this->cart->get($taxRate, $discount));
+    return response()->json($this->cartResponse($request));
   }
 
-  public function store(StoreCartItemRequest $request)
+  /**
+   * POST /api/cart/items
+   * body: { product_id, name, price, quantity }
+   */
+  public function store(StoreCartItemRequest $request): JsonResponse
   {
-    $d = $request->validated();
-    $payload = $this->cart->add((int)$d['product_id'], (string)$d['name'], (float)$d['price'], (int)$d['quantity']);
-    return response()->json($payload, 201);
+    $v = $request->validated();
+
+    // CartService::add(int $productId, string $name, float $price, int $quantity)
+    $this->cart->add(
+      (int)   $v['product_id'],
+      (string)$v['name'],
+      (float) $v['price'],
+      (int)   $v['quantity']
+    );
+
+    return response()->json($this->cartResponse($request), 201);
   }
 
-  public function update(UpdateCartItemRequest $request, int $productId)
+  /**
+   * PATCH /api/cart/items/{productId}
+   * body: { quantity }
+   * quantity=0 removes the item
+   */
+  public function update(UpdateCartItemRequest $request, int $productId): JsonResponse
   {
-    $qty = (int) $request->validated()['quantity'];
-    $payload = $this->cart->update($productId, $qty);
-    return response()->json($payload);
+    $v = $request->validated();
+    $this->cart->update((int)$productId, (int)$v['quantity']);
+
+    return response()->json($this->cartResponse($request));
   }
 
-  public function destroy(int $productId)
+  /**
+   * DELETE /api/cart/items/{productId}
+   */
+  public function destroy(Request $request, int $productId): JsonResponse
   {
-    $payload = $this->cart->remove($productId);
-    return response()->json($payload, 200);
+    $this->cart->remove((int)$productId);
+
+    return response()->json($this->cartResponse($request));
   }
 
-  public function clear()
+  /**
+   * DELETE /api/cart
+   */
+  public function clear(Request $request): JsonResponse
   {
-    return response()->json($this->cart->clear());
+    $this->cart->clear();
+
+    return response()->json($this->cartResponse($request));
+  }
+
+  /**
+   * Centralized response w/ admin gating + percent/flat discounts.
+   */
+  private function cartResponse(Request $request): array
+  {
+    $role = (string)$request->session()->get('role', 'shopper');
+
+    // shopper cannot influence pricing
+    if ($role !== 'admin') {
+      return $this->cart->get(0.0, 0.0);
+    }
+
+    // admin-only knobs
+    $taxRate       = (float)$request->query('tax_rate', 0.0);
+    $discountInput = (float)$request->query('discount', 0.0);
+    $type          = (string)$request->query('discount_type', 'flat'); // flat|percent
+
+    // Convert percent -> flat dollars using current subtotal (no tax/discount)
+    $discountFlat = $discountInput;
+    if ($type === 'percent') {
+      // clamp 0–100
+      $pct = max(0.0, min(100.0, $discountInput));
+      $snap = $this->cart->get(0.0, 0.0);
+      $subtotal = (float)($snap['subtotal'] ?? 0.0);
+      $discountFlat = round($subtotal * ($pct / 100.0), 2);
+    }
+
+    return $this->cart->get($taxRate, $discountFlat);
   }
 }

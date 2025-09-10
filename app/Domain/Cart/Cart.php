@@ -54,35 +54,65 @@ final class Cart implements CartInterface
     return round($sum, 2);
   }
 
-  public function total(float $taxRate = 0.0, float $discount = 0.0): float
+  public function total(float $taxRate = 0.0, float $discount = 0.0, string $discountType = 'flat'): float
   {
-    return $this->totalsBreakdown($taxRate, $discount)['total'];
+    return $this->totalsBreakdown($taxRate, $discount, $discountType)['total'];
   }
 
-  private function totalsBreakdown(float $taxRate, float $discount): array
+
+  /** Single source of truth for money math. */
+  private function totalsBreakdown(float $taxRate, float $discount, string $discountType = 'flat'): array
   {
     if ($taxRate < 0.0)  throw new \InvalidArgumentException('Tax rate must be >= 0');
     if ($discount < 0.0) throw new \InvalidArgumentException('Discount must be >= 0');
 
-    $subtotal      = $this->subTotal();
-    $afterDiscount = round(max(0.0, $subtotal - $discount), 2);
+    $subtotal = $this->subTotal();
+
+    $type = strtolower($discountType);
+    if (!in_array($type, ['none', 'flat', 'percent'], true)) {
+      throw new \InvalidArgumentException('Discount type must be none|flat|percent');
+    }
+
+    $discountAmount = 0.0;
+    if ($type === 'flat') {
+      $discountAmount = $discount;
+    } elseif ($type === 'percent') {
+      // cap percent to [0..100]
+      $pct = max(0.0, min(100.0, $discount));
+      $discountAmount = round($subtotal * ($pct / 100.0), 2);
+    }
+
+    $afterDiscount = round(max(0.0, $subtotal - $discountAmount), 2);
     $tax           = round($afterDiscount * $taxRate, 2);
     $total         = round($afterDiscount + $tax, 2);
 
-    return compact('subtotal', 'afterDiscount', 'taxRate', 'discount', 'tax', 'total');
+    return [
+      'subtotal'        => $subtotal,
+      'discount_type'   => $type,
+      'discount'        => $discount,       // as supplied (flat $ or percent %)
+      'discount_amount' => $discountAmount, // actual dollars taken off
+      'taxRate'         => $taxRate,
+      'tax'             => $tax,
+      'total'           => $total,
+    ];
   }
 
-  public function toArrayForApi(float $taxRate = 0.0, float $discount = 0.0): array
+
+  /** Shape of API payload. */
+  public function toArrayForApi(float $taxRate = 0.0, float $discount = 0.0, string $discountType = 'flat'): array
   {
-    $t = $this->totalsBreakdown($taxRate, $discount);
+    $t = $this->totalsBreakdown($taxRate, $discount, $discountType);
+
     return [
-      'items'      => array_map(fn($i) => $i->jsonSerialize(), $this->items()),
-      'subtotal'   => $t['subtotal'],
-      'discount'   => $t['discount'],
-      'tax_rate'   => $t['taxRate'],
-      'tax'        => $t['tax'],
-      'total'      => $t['total'],
-      'checkout'   => $this->checkoutUrl(),
+      'items'           => array_map(fn($i) => $i->jsonSerialize(), $this->items()),
+      'subtotal'        => $t['subtotal'],
+      'discount_type'   => $t['discount_type'],
+      'discount'        => $t['discount'],
+      'discount_amount' => $t['discount_amount'],
+      'tax_rate'        => $t['taxRate'],
+      'tax'             => $t['tax'],
+      'total'           => $t['total'],
+      'checkout'        => $this->checkoutUrl(),
     ];
   }
 

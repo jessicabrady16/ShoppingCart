@@ -58,4 +58,9 @@ final class CartService
     $this->session->forget(self::KEY);
     return (new Cart())->toArrayForApi();
   }
+
+  public function getWithPricing(float $taxRate = 0.0, float $discount = 0.0, string $discountType = 'flat'): array
+  {
+    return $this->load()->toArrayForApi($taxRate, $discount, $discountType);
+  }
 }
